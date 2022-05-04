@@ -1,6 +1,16 @@
 
 const axios = require('axios')
 
+get = (obj, path, defaultValue = undefined) => {
+  const travel = regexp =>
+    String.prototype.split
+      .call(path, regexp)
+      .filter(Boolean)
+      .reduce((res, key) => (res !== null && res !== undefined ? res[key] : res), obj);
+  const result = travel(/[,[\]]+?/) || travel(/[,[\].]+?/);
+  return result === undefined || result === obj ? defaultValue : result;
+}
+
 class YoutubeGrabberHelper {
   constructor (httpsAgent) {
     this.session = axios.create({
@@ -302,15 +312,15 @@ class YoutubeGrabberHelper {
       // comment count not available on shared posts
       const postData = {
         postText: '',
-        postId: post.backstagePostThreadRenderer.post.backstagePostRenderer.postId,
-        author: post.backstagePostThreadRenderer.post.backstagePostRenderer.authorText.runs[0].text,
-        authorThumbnails: post.backstagePostThreadRenderer.post.backstagePostRenderer.authorThumbnail.thumbnails,
-        publishedText: post.backstagePostThreadRenderer.post.backstagePostRenderer.publishedTimeText.runs[0].text,
-        voteCount: post.backstagePostThreadRenderer.post.backstagePostRenderer.voteCount.simpleText,
+        postId: get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.postId'),
+        author: get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.authorText.runs[0].text'),
+        authorThumbnails: get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.authorThumbnail.thumbnails'),
+        publishedText: get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.publishedTimeText.runs[0].text'),
+        voteCount: get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.voteCount.simpleText'),
         postContent: null,
-        commentCount: ('text' in post.backstagePostThreadRenderer.post.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer) ? post.backstagePostThreadRenderer.post.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer.text.simpleText : '0'
+        commentCount: ('text' in get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer')) ? get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer.text.simpleText') : '0'
       }
-      if ('runs' in post.backstagePostThreadRenderer.post.backstagePostRenderer.contentText) {
+      if ('runs' in get(post,'backstagePostThreadRenderer.post.backstagePostRenderer.contentText')) {
         // eslint-disable-next-line no-return-assign
         post.backstagePostThreadRenderer.post.backstagePostRenderer.contentText.runs.forEach((element, index) => {
           if ('navigationEndpoint' in element) {
@@ -323,14 +333,15 @@ class YoutubeGrabberHelper {
       }
 
       // if this exists, then the post contains more data than only text - Assumption: sharedPostRenderer only has text. Only occurred once so far
-      if ('backstageAttachment' in post.backstagePostThreadRenderer.post.backstagePostRenderer) {
+      if ('backstageAttachment' in get(post,'backstagePostThreadRenderer.post.backstagePostRenderer')) {
         if ('backstageImageRenderer' in post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment) {
           // post with an image
           postData.postContent = { type: 'image', content: post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment.backstageImageRenderer.image.thumbnails }
         } else if ('pollRenderer' in post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment) {
           // post with a poll
-          const pollObject = post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment.pollRenderer
-          postData.postContent = { type: 'poll', content: { choices: pollObject.choices.map((entry) => entry.text.runs[0].text), totalVotes: pollObject.totalVotes.simpleText } }
+          const pollObject = post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment.pollRenderer;
+
+          postData.postContent = { type: 'poll', content: { choices: pollObject.choices.map((entry) => get(entry,'text.runs[0].text')), totalVotes: get(pollObject, 'totalVotes.simpleText',0) } }
         } else if ('videoRenderer' in post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment) {
           // post with a video
           const videoRenderer = post.backstagePostThreadRenderer.post.backstagePostRenderer.backstageAttachment.videoRenderer
@@ -338,14 +349,14 @@ class YoutubeGrabberHelper {
             type: 'video',
             content: {
               videoId: videoRenderer.videoId,
-              title: videoRenderer.title.runs[0].text,
-              description: videoRenderer.descriptionSnippet.runs[0].text,
-              publishedText: videoRenderer.publishedTimeText.simpleText,
-              lengthText: videoRenderer.lengthText.simpleText,
-              viewCountText: videoRenderer.viewCountText.simpleText,
+              title: get(videoRenderer,'title.runs[0].text'),
+              description: get(videoRenderer,'descriptionSnippet.runs[0].text'),
+              publishedText: get(videoRenderer,'publishedTimeText.simpleText'),
+              lengthText: get(videoRenderer,'lengthText.simpleText'),
+              viewCountText: get(videoRenderer,'viewCountText.simpleText'),
               badges: { verified: false, officialArtist: false },
-              author: videoRenderer.ownerText.runs[0].text,
-              thumbnails: videoRenderer.thumbnail.thumbnails
+              author: get(videoRenderer,'ownerText.runs[0].text'),
+              thumbnails: get(videoRenderer,'thumbnail.thumbnails')
             }
           }
           if ('ownerBadges' in videoRenderer) {
@@ -361,20 +372,20 @@ class YoutubeGrabberHelper {
             type: 'playlist',
             content: {
               playlistId: playlistRenderer.playlistId,
-              title: playlistRenderer.title.simpleText,
+              title: get(playlistRenderer,'title.simpleText'),
               playlistVideoRenderer: [],
-              videoCountText: playlistRenderer.videoCountText.runs[0],
+              videoCountText: get(playlistRenderer,'videoCountText.runs[0]'),
               ownerBadges: playlistRenderer.ownerBadges,
-              author: playlistRenderer.longBylineText.runs[0].text,
+              author: get(playlistRenderer,'longBylineText.runs[0].text'),
               thumbnails: playlistRenderer.thumbnails
             }
           }
           // there are small preview lines of the first view videos in the playlist
           playlistRenderer.videos.forEach((video) => {
             postData.postContent.content.playlistVideoRenderer.push({
-              title: video.childVideoRenderer.title.simpleText,
-              videoId: video.childVideoRenderer.videoId,
-              lengthText: video.childVideoRenderer.lengthText.simpleText
+              title: get(video,'childVideoRenderer.title.simpleText'),
+              videoId: get(video,'childVideoRenderer.videoId'),
+              lengthText: get(video,'childVideoRenderer.lengthText.simpleText')
             })
           }
           )
@@ -411,13 +422,13 @@ class YoutubeGrabberHelper {
   parseSharedPost(post) {
     const postData = {
       postText: '',
-      postId: post.backstagePostThreadRenderer.post.sharedPostRenderer.postId,
-      author: post.backstagePostThreadRenderer.post.sharedPostRenderer.displayName.runs[0].text,
-      authorThumbnails: post.backstagePostThreadRenderer.post.sharedPostRenderer.thumbnail.thumbnails,
-      publishedText: post.backstagePostThreadRenderer.post.sharedPostRenderer.publishedTimeText.runs[0].text,
-      voteCount: post.backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.voteCount.simpleText,
+      postId: get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.postId'),
+      author: get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.displayName.runs[0].text'),
+      authorThumbnails: get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.thumbnail.thumbnails'),
+      publishedText: get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.publishedTimeText.runs[0].text'),
+      voteCount: get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.voteCount.simpleText'),
       postContent: null,
-      commentCount: ('text' in post.backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer) ? post.backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer.text.simpleText : '0',
+      commentCount: ('text' in get(post,'backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer')) ? post.backstagePostThreadRenderer.post.sharedPostRenderer.originalPost.backstagePostRenderer.actionButtons.commentActionButtonsRenderer.replyButton.buttonRenderer.text.simpleText : '0',
     }
     post.backstagePostThreadRenderer.post.sharedPostRenderer.content.runs.forEach((element, index) => { postData.postText += (index !== 0) ? ' ' + element.text : element.text })
     return postData
@@ -425,12 +436,12 @@ class YoutubeGrabberHelper {
 
   parseMix(obj, channelInfo) {
     const mix = obj.compactStationRenderer
-    const playlistId = mix.navigationEndpoint.watchEndpoint.playlistId
-    const title = mix.title.simpleText
-    const description = mix.description.simpleText
-    const videoCount = parseInt(mix.videoCountText.runs[0].text)
-    const url = mix.navigationEndpoint.commandMetadata.url
-    const thumbnails = mix.thumbnail.thumbnails
+    const playlistId = get(mix,'navigationEndpoint.watchEndpoint.playlistId')
+    const title = get(mix,'title.simpleText')
+    const description = get(mix, 'description.simpleText')
+    const videoCount = parseInt(get(mix,'videoCountText.runs[0].text'))
+    const url = get(mix,'navigationEndpoint.commandMetadata.url')
+    const thumbnails = get(mix,'thumbnail.thumbnails')
     return {
       playlistId: playlistId,
       title: title,
@@ -458,7 +469,7 @@ class YoutubeGrabberHelper {
         return null
       }
 
-      thumbnails = playlist.thumbnails[0].thumbnails
+      thumbnails = get(playlist,'thumbnails[0].thumbnails')
       title = playlist.title.simpleText
       videoCount = parseInt(playlist.videoCount)
     } else {
@@ -468,9 +479,9 @@ class YoutubeGrabberHelper {
         return null
       }
 
-      thumbnails = playlist.thumbnail.thumbnails
+      thumbnails = get(playlist,'thumbnail.thumbnails')
       title = playlist.title.runs[0].text
-      videoCount = parseInt(playlist.videoCountShortText.simpleText)
+      videoCount = parseInt(get(playlist,'videoCountShortText.simpleText'))
     }
 
     return {

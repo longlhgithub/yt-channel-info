@@ -288,7 +288,10 @@ class YoutubeGrabberHelper {
 
     // Parse the JSON data and get the relevent array with data
     let contentDataJSON = JSON.parse(contentDataString)
-    contentDataJSON = contentDataJSON.contents.twoColumnBrowseResultsRenderer.tabs[3].tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer
+    let videosTab = contentDataJSON.contents.twoColumnBrowseResultsRenderer.tabs.find(tab=> tab.title ==='Videos');
+    if(!videosTab)
+      videosTab =  contentDataJSON.contents.twoColumnBrowseResultsRenderer.tabs[1];
+    contentDataJSON = videosTab.tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer
     if ('continuationItemRenderer' in contentDataJSON.contents[contentDataJSON.contents.length - 1]) {
       return { items: this.createCommunityPostArray(contentDataJSON.contents), continuation: contentDataJSON.contents[contentDataJSON.contents.length - 1].continuationItemRenderer.continuationEndpoint.continuationCommand.token, innerTubeApi: innertubeAPIkey, channelIdType: channelIdType }
     }
